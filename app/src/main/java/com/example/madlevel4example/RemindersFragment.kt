@@ -12,6 +12,10 @@ import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import kotlinx.android.synthetic.main.fragment_reminders.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * A simple [Fragment] subclass as the default destination in the navigation.
@@ -40,13 +44,17 @@ class RemindersFragment : Fragment() {
         getRemindersFromDatabase()
     }
 
+    // Use couroutine as a lightweight thread to execute queries in the background
     private fun getRemindersFromDatabase() {
-        val reminders = reminderRepository.getAllReminders()
-        this@RemindersFragment.reminders.clear()
-        this@RemindersFragment.reminders.addAll(reminders)
-        reminderAdapter.notifyDataSetChanged()
+        CoroutineScope(Dispatchers.Main).launch {
+            val reminders = withContext(Dispatchers.IO) {
+                reminderRepository.getAllReminders()
+            }
+            this@RemindersFragment.reminders.clear()
+            this@RemindersFragment.reminders.addAll(reminders)
+            reminderAdapter.notifyDataSetChanged()
+        }
     }
-
 
     private fun initViews() {
         // Initialize the recycler view with a linear layout manager, adapter
@@ -71,13 +79,16 @@ class RemindersFragment : Fragment() {
                 val reminder = Reminder(it)
 
                 // Insert the reminder to the database
-                reminderRepository.insertReminder(reminder)
-                getRemindersFromDatabase()
+                CoroutineScope(Dispatchers.Main).launch {
+                    withContext(Dispatchers.IO) {
+                        reminderRepository.insertReminder(reminder)
+                    }
+                    getRemindersFromDatabase()
+                }
             } ?: Log.e("ReminderFragment", "Request triggered, but empty reminder text!")
 
         }
     }
-
 
 
     /**
@@ -106,9 +117,12 @@ class RemindersFragment : Fragment() {
 
                 // Delete the reminder from the database
                 val reminderToDelete = reminders[position]
-                reminderRepository.deleteReminder(reminderToDelete)
-                getRemindersFromDatabase()
-
+                CoroutineScope(Dispatchers.Main).launch {
+                    withContext(Dispatchers.IO) {
+                        reminderRepository.deleteReminder(reminderToDelete)
+                    }
+                    getRemindersFromDatabase()
+                }
             }
         }
         return ItemTouchHelper(callback)
